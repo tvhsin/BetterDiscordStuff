@@ -1,6 +1,6 @@
 /**
  * @name CompleteDiscordQuest
- * @version 0.0.2
+ * @version 0.0.3
  * @description A BetterDiscord plugin to complete Discord quests. Based on the [original gist by aamiaa](https://gist.github.com/aamiaa/204cd9d42013ded9faf646fae7f89fbb).
  * @author Tahsin (@tahsin_ahmed62)
  */
@@ -45,61 +45,77 @@ module.exports = class CompleteDiscordQuest {
         await new Promise(resolve => setTimeout(resolve, 10000));
 
         // Get necessary stores and API
-        const ApplicationStreamingStore = Object.values(wpRequire.c).find(x => x?.exports?.Z?.getStreamerActiveStreamMetadata).exports.Z;
-        const RunningGameStore = Object.values(wpRequire.c).find(x => x?.exports?.ZP?.getRunningGames).exports.ZP;
-        const QuestsStore = Object.values(wpRequire.c).find(x => x?.exports?.Z?.getQuest).exports.Z;
-        const ChannelStore = Object.values(wpRequire.c).find(x => x?.exports?.Z?.getAllThreadsForParent).exports.Z;
-        const GuildChannelStore = Object.values(wpRequire.c).find(x => x?.exports?.ZP?.getSFWDefaultChannel).exports.ZP;
-        const FluxDispatcher = Object.values(wpRequire.c).find(x => x?.exports?.Z?.flushWaitQueue).exports.Z;
-        const api = Object.values(wpRequire.c).find(x => x?.exports?.tn?.get).exports.tn;
+        const { ApplicationStreamingStore, RunningGameStore, QuestsStore, ChannelStore, GuildChannelStore, FluxDispatcher, api } = this.loadStores(wpRequire);
 
         // Find an uncompleted quest
-        const quest = [...QuestsStore.quests.values()].find(x => x.id !== "1248385850622869556" && x.userStatus?.enrolledAt && !x.userStatus?.completedAt && new Date(x.config.expiresAt).getTime() > Date.now());
+        const quest = this.findUncompletedQuest(QuestsStore);
         const isApp = navigator.userAgent.includes("Electron/");
 
         if (!quest) {
-            // Notify the user if there are no uncompleted quests
-            console.log("You don't have any uncompleted quests!");
-            BdApi.UI.showConfirmationModal("No Quests Left", "You don't have any claimed incomplete quests. Would you like to disable CompleteDiscordQuest and restart discord?", {
-                confirmText: "Yes",
-                cancelText: "No, keep plugin enabled.",
-                onConfirm: () => {
-                    BdApi.Plugins.disable("CompleteDiscordQuest");
-                    location.reload();
-                },
-                onCancel: () => {
-                    BdApi.UI.showNotice("You don't have any uncompleted quests!", { 
-                        type: "info",
-                        buttons: [
-                            {
-                                label: "Disable Plugin & Restart Discord",
-                                onClick: () => {
-                                    BdApi.Plugins.disable("CompleteDiscordQuest");
-                                    location.reload();
-                                }
-                            }
-                        ]
-                    });
-                }
-            });
+            this.handleNoQuests();
         } else {
-            // Handle different quest types
-            const pid = Math.floor(Math.random() * 30000) + 1000;
-            const applicationId = quest.config.application.id;
-            const applicationName = quest.config.application.name;
-            const taskName = ["WATCH_VIDEO", "PLAY_ON_DESKTOP", "STREAM_ON_DESKTOP", "PLAY_ACTIVITY"].find(x => quest.config.taskConfig.tasks[x] != null);
-            const secondsNeeded = quest.config.taskConfig.tasks[taskName].target;
-            const secondsDone = quest.userStatus?.progress?.[taskName]?.value ?? 0;
+            this.handleQuest(quest, api, RunningGameStore, FluxDispatcher, ApplicationStreamingStore, ChannelStore, GuildChannelStore, isApp);
+        }
+    }
 
-            if (taskName === "WATCH_VIDEO") {
-                this.handleWatchVideoQuest(api, quest, secondsNeeded, secondsDone, applicationName);
-            } else if (taskName === "PLAY_ON_DESKTOP") {
-                this.handlePlayOnDesktopQuest(api, RunningGameStore, FluxDispatcher, quest, applicationId, applicationName, pid, isApp, secondsNeeded, secondsDone);
-            } else if (taskName === "STREAM_ON_DESKTOP") {
-                this.handleStreamOnDesktopQuest(ApplicationStreamingStore, FluxDispatcher, quest, applicationId, pid, isApp, secondsNeeded, secondsDone, applicationName);
-            } else if (taskName === "PLAY_ACTIVITY") {
-                this.handlePlayActivityQuest(api, ChannelStore, GuildChannelStore, quest, secondsNeeded, applicationName);
+    loadStores(wpRequire) {
+        return {
+            ApplicationStreamingStore: Object.values(wpRequire.c).find(x => x?.exports?.Z?.getStreamerActiveStreamMetadata).exports.Z,
+            RunningGameStore: Object.values(wpRequire.c).find(x => x?.exports?.ZP?.getRunningGames).exports.ZP,
+            QuestsStore: Object.values(wpRequire.c).find(x => x?.exports?.Z?.getQuest).exports.Z,
+            ChannelStore: Object.values(wpRequire.c).find(x => x?.exports?.Z?.getAllThreadsForParent).exports.Z,
+            GuildChannelStore: Object.values(wpRequire.c).find(x => x?.exports?.ZP?.getSFWDefaultChannel).exports.ZP,
+            FluxDispatcher: Object.values(wpRequire.c).find(x => x?.exports?.Z?.flushWaitQueue).exports.Z,
+            api: Object.values(wpRequire.c).find(x => x?.exports?.tn?.get).exports.tn
+        };
+    }
+
+    findUncompletedQuest(QuestsStore) {
+        return [...QuestsStore.quests.values()].find(x => x.id !== "1248385850622869556" && x.userStatus?.enrolledAt && !x.userStatus?.completedAt && new Date(x.config.expiresAt).getTime() > Date.now());
+    }
+
+    handleNoQuests() {
+        console.log("You don't have any uncompleted quests!");
+        BdApi.UI.showConfirmationModal("No Quests Left", "You don't have any claimed incomplete quests. Would you like to disable CompleteDiscordQuest and restart discord?", {
+            confirmText: "Yes",
+            cancelText: "No, keep plugin enabled.",
+            onConfirm: () => {
+                BdApi.Plugins.disable("CompleteDiscordQuest");
+                location.reload();
+            },
+            onCancel: () => {
+                BdApi.UI.showNotice("You don't have any uncompleted quests!", { 
+                    type: "info",
+                    buttons: [
+                        {
+                            label: "Disable Plugin & Restart Discord",
+                            onClick: () => {
+                                BdApi.Plugins.disable("CompleteDiscordQuest");
+                                location.reload();
+                            }
+                        }
+                    ]
+                });
             }
+        });
+    }
+
+    handleQuest(quest, api, RunningGameStore, FluxDispatcher, ApplicationStreamingStore, ChannelStore, GuildChannelStore, isApp) {
+        const pid = Math.floor(Math.random() * 30000) + 1000;
+        const applicationId = quest.config.application.id;
+        const applicationName = quest.config.application.name;
+        const taskName = ["WATCH_VIDEO", "PLAY_ON_DESKTOP", "STREAM_ON_DESKTOP", "PLAY_ACTIVITY"].find(x => quest.config.taskConfig.tasks[x] != null);
+        const secondsNeeded = quest.config.taskConfig.tasks[taskName].target;
+        const secondsDone = quest.userStatus?.progress?.[taskName]?.value ?? 0;
+
+        if (taskName === "WATCH_VIDEO") {
+            this.handleWatchVideoQuest(api, quest, secondsNeeded, secondsDone, applicationName);
+        } else if (taskName === "PLAY_ON_DESKTOP") {
+            this.handlePlayOnDesktopQuest(api, RunningGameStore, FluxDispatcher, quest, applicationId, applicationName, pid, isApp, secondsNeeded, secondsDone);
+        } else if (taskName === "STREAM_ON_DESKTOP") {
+            this.handleStreamOnDesktopQuest(ApplicationStreamingStore, FluxDispatcher, quest, applicationId, pid, isApp, secondsNeeded, secondsDone, applicationName);
+        } else if (taskName === "PLAY_ACTIVITY") {
+            this.handlePlayActivityQuest(api, ChannelStore, GuildChannelStore, quest, secondsNeeded, applicationName);
         }
     }
 
