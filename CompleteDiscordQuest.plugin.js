@@ -1,7 +1,7 @@
 /**
  * @name CompleteDiscordQuest
  * @version 0.0.1
- * @description A BetterDiscord plugin to complete Discord quests.
+ * @description A BetterDiscord plugin to complete Discord quests. Based on the [original gist by aamiaa](https://gist.github.com/aamiaa/204cd9d42013ded9faf646fae7f89fbb)
  * @author Tahsin (@tahsin_ahmed62)
  */
 
