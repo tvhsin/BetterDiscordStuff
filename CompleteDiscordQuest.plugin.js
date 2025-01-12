@@ -1,8 +1,12 @@
 /**
  * @name CompleteDiscordQuest
  * @version 0.0.3
- * @description A BetterDiscord plugin to complete Discord quests. Based on the [original gist by aamiaa](https://gist.github.com/aamiaa/204cd9d42013ded9faf646fae7f89fbb).
+ * @description A BetterDiscord plugin to complete Discord quests without doing the tasks.
  * @author Tahsin (@tahsin_ahmed62)
+ * @source https://github.com/tvhsin/BetterDiscordStuff
+ * @license Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0)
+ * Credits:
+ * Based on code from aamiaa - https://gist.github.com/aamiaa/204cd9d42013ded9faf646fae7f89fbb
  */
 
 module.exports = class CompleteDiscordQuest {
