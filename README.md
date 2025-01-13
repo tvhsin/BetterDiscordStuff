@@ -13,9 +13,10 @@ CompleteDiscordQuest is a plugin for BetterDiscord that automates the completion
 
 ### Features
 
-- Automatically completes Discord quests.
 - Notifies the user when the plugin starts and stops.
-- Prompts the user to close settings if they are open when the plugin starts.
+- Automatically completes Discord quests.
+- Automatically turns itself off if no quests are found.
+
 
 ### Installation
 
