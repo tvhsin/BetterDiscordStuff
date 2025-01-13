@@ -1,12 +1,10 @@
 /**
  * @name CompleteDiscordQuest
- * @version 0.0.3
+ * @version 0.0.4
  * @description A BetterDiscord plugin to complete Discord quests without doing the tasks.
  * @author Tahsin (@tahsin_ahmed62)
  * @source https://github.com/tvhsin/BetterDiscordStuff
  * @license Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0)
- * Credits:
- * Based on code from aamiaa - https://gist.github.com/aamiaa/204cd9d42013ded9faf646fae7f89fbb
  */
 
 module.exports = class CompleteDiscordQuest {
@@ -35,6 +33,15 @@ module.exports = class CompleteDiscordQuest {
     stop() {
         // Notify the user that the plugin has stopped
         BdApi.UI.showToast("CompleteDiscordQuest plugin stopped!", { type: "info" });
+
+        // Show a popup informing the user that the script will still run until Discord is restarted
+        BdApi.UI.showConfirmationModal("Plugin Stopped", "The script will still run until you restart Discord. Would you like to restart Discord now?", {
+            confirmText: "Restart Discord",
+            cancelText: "Later",
+            onConfirm: () => {
+                location.reload();
+            }
+        });
     }
 
     async runScript() {
@@ -46,7 +53,7 @@ module.exports = class CompleteDiscordQuest {
         window.webpackChunkdiscord_app.push([[ Math.random() ], {}, (req) => { wpRequire = req; }]);
 
         // Delay to ensure quests are loaded
-        await new Promise(resolve => setTimeout(resolve, 10000));
+        await this.delay(10000);
 
         // Get necessary stores and API
         const { ApplicationStreamingStore, RunningGameStore, QuestsStore, ChannelStore, GuildChannelStore, FluxDispatcher, api } = this.loadStores(wpRequire);
@@ -132,28 +139,25 @@ module.exports = class CompleteDiscordQuest {
             for (let i = startingPoint; i <= secondsNeeded; i += speed) {
                 try {
                     await api.post({ url: `/quests/${quest.id}/video-progress`, body: { timestamp: Math.min(secondsNeeded, i + Math.random()) } });
-                    BdApi.UI.showToast(`Quest progress: ${i}/${secondsNeeded}`, { type: "info", timeout: 2000 });
+                    this.showProgressNotice(`Quest progress: ${i}/${secondsNeeded}`);
                 } catch (ex) {
                     console.log("Failed to send increment of", i, ex.message);
                 }
-                await new Promise(resolve => setTimeout(resolve, tolerance * 1000));
+                await this.delay(tolerance * 1000);
             }
             if ((secondsNeeded - secondsDone) % speed !== 0) {
                 await api.post({ url: `/quests/${quest.id}/video-progress`, body: { timestamp: secondsNeeded } });
             }
-            console.log("Quest completed!");
-            BdApi.UI.showNotice("Quest completed!", { type: "success" });
+            this.showCompletionNotice("Quest completed!");
         };
         fn();
-        console.log(`Spoofing video for ${applicationName}. Wait for ${Math.ceil((secondsNeeded - startingPoint) / speed * tolerance)} more seconds.`);
-        BdApi.UI.showNotice(`Spoofing video for ${applicationName}. Wait for ${Math.ceil((secondsNeeded - startingPoint) / speed * tolerance)} more seconds.`, { type: "info" });
+        this.showProgressNotice(`Spoofing video for ${applicationName}. Wait for ${Math.ceil((secondsNeeded - startingPoint) / speed * tolerance)} more seconds.`);
     }
 
     handlePlayOnDesktopQuest(api, RunningGameStore, FluxDispatcher, quest, applicationId, applicationName, pid, isApp, secondsNeeded, secondsDone) {
         // Handle PLAY_ON_DESKTOP quest type
         if (!isApp) {
-            console.log("This no longer works in browser for non-video quests. Use the desktop app to complete the", applicationName, "quest!");
-            BdApi.UI.showNotice("This no longer works in browser for non-video quests. Use the desktop app to complete the quest!", { type: "error" });
+            this.showErrorNotice("This no longer works in browser for non-video quests. Use the desktop app to complete the quest!");
             return;
         }
 
@@ -162,30 +166,16 @@ module.exports = class CompleteDiscordQuest {
             const exeName = appData.executables.find(x => x.os === "win32").name.replace(">", "");
 
             const games = RunningGameStore.getRunningGames();
-            const fakeGame = {
-                cmdLine: `C:\\Program Files\\${appData.name}\\${exeName}`,
-                exeName,
-                exePath: `c:/program files/${appData.name.toLowerCase()}/${exeName}`,
-                hidden: false,
-                isLauncher: false,
-                id: applicationId,
-                name: appData.name,
-                pid: pid,
-                pidPath: [pid],
-                processName: appData.name,
-                start: Date.now(),
-            };
+            const fakeGame = this.createFakeGame(appData, exeName, applicationId, pid);
             games.push(fakeGame);
             FluxDispatcher.dispatch({ type: "RUNNING_GAMES_CHANGE", removed: [], added: [fakeGame], games: games });
 
             let fn = data => {
                 let progress = quest.config.configVersion === 1 ? data.userStatus.streamProgressSeconds : Math.floor(data.userStatus.progress.PLAY_ON_DESKTOP.value);
-                console.log(`Quest progress: ${progress}/${secondsNeeded}`);
-                BdApi.UI.showToast(`Quest progress: ${progress}/${secondsNeeded}`, { type: "info", timeout: 2000 });
+                this.showProgressNotice(`Quest progress: ${progress}/${secondsNeeded}`);
 
                 if (progress >= secondsNeeded) {
-                    console.log("Quest completed!");
-                    BdApi.UI.showNotice("Quest completed!", { type: "success" });
+                    this.showCompletionNotice("Quest completed!");
 
                     const idx = games.indexOf(fakeGame);
                     if (idx > -1) {
@@ -197,16 +187,14 @@ module.exports = class CompleteDiscordQuest {
             };
             FluxDispatcher.subscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
 
-            console.log(`Spoofed your game to ${applicationName}. Wait for ${Math.ceil((secondsNeeded - secondsDone) / 60)} more minutes.`);
-            BdApi.UI.showNotice(`Spoofed your game to ${applicationName}. Wait for ${Math.ceil((secondsNeeded - secondsDone) / 60)} more minutes.`, { type: "info" });
+            BdApi.UI.showNotice(`Spoofed your game to ${applicationName}. Wait for ${Math.ceil((secondsNeeded - secondsDone) / 60)} more minutes.`);
         });
     }
 
     handleStreamOnDesktopQuest(ApplicationStreamingStore, FluxDispatcher, quest, applicationId, pid, isApp, secondsNeeded, secondsDone, applicationName) {
         // Handle STREAM_ON_DESKTOP quest type
         if (!isApp) {
-            console.log("This no longer works in browser for non-video quests. Use the desktop app to complete the", applicationName, "quest!");
-            BdApi.UI.showNotice("This no longer works in browser for non-video quests. Use the desktop app to complete the quest!", { type: "error" });
+            this.showErrorNotice("This no longer works in browser for non-video quests. Use the desktop app to complete the quest!");
             return;
         }
 
@@ -219,12 +207,10 @@ module.exports = class CompleteDiscordQuest {
 
         let fn = data => {
             let progress = quest.config.configVersion === 1 ? data.userStatus.streamProgressSeconds : Math.floor(data.userStatus.progress.STREAM_ON_DESKTOP.value);
-            console.log(`Quest progress: ${progress}/${secondsNeeded}`);
-            BdApi.UI.showToast(`Quest progress: ${progress}/${secondsNeeded}`, { type: "info", timeout: 2000 });
+            this.showProgressNotice(`Quest progress: ${progress}/${secondsNeeded}`);
 
             if (progress >= secondsNeeded) {
-                console.log("Quest completed!");
-                BdApi.UI.showNotice("Quest completed!", { type: "success" });
+                this.showCompletionNotice("Quest completed!");
 
                 ApplicationStreamingStore.getStreamerActiveStreamMetadata = realFunc;
                 FluxDispatcher.unsubscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
@@ -232,10 +218,8 @@ module.exports = class CompleteDiscordQuest {
         };
         FluxDispatcher.subscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
 
-        console.log(`Spoofed your stream to ${applicationName}. Stream any window in vc for ${Math.ceil((secondsNeeded - secondsDone) / 60)} more minutes.`);
-        BdApi.UI.showNotice(`Spoofed your stream to ${applicationName}. Stream any window in vc for ${Math.ceil((secondsNeeded - secondsDone) / 60)} more minutes.`, { type: "info" });
-        console.log("Remember that you need at least 1 other person to be in the vc!");
-        BdApi.UI.showNotice("Remember that you need at least 1 other person to be in the vc!", { type: "info" });
+        BdApi.UI.showNotice(`Spoofed your stream to ${applicationName}. Stream any window in vc for ${Math.ceil((secondsNeeded - secondsDone) / 60)} more minutes.`);
+        BdApi.UI.showNotice("Remember that you need at least 1 other person to be in the vc!");
     }
 
     async handlePlayActivityQuest(api, ChannelStore, GuildChannelStore, quest, secondsNeeded, applicationName) {
@@ -249,10 +233,9 @@ module.exports = class CompleteDiscordQuest {
             while (true) {
                 const res = await api.post({ url: `/quests/${quest.id}/heartbeat`, body: { stream_key: streamKey, terminal: false } });
                 const progress = res.body.progress.PLAY_ACTIVITY.value;
-                console.log(`Quest progress: ${progress}/${secondsNeeded}`);
-                BdApi.UI.showToast(`Quest progress: ${progress}/${secondsNeeded}`, { type: "info", timeout: 2000 });
+                this.showProgressNotice(`Quest progress: ${progress}/${secondsNeeded}`);
 
-                await new Promise(resolve => setTimeout(resolve, 20 * 1000));
+                await this.delay(20000);
 
                 if (progress >= secondsNeeded) {
                     await api.post({ url: `/quests/${quest.id}/heartbeat`, body: { stream_key: streamKey, terminal: true } });
@@ -260,9 +243,40 @@ module.exports = class CompleteDiscordQuest {
                 }
             }
 
-            console.log("Quest completed!");
-            BdApi.UI.showNotice("Quest completed!", { type: "success" });
+            this.showCompletionNotice("Quest completed!");
         };
         fn();
+    }
+
+    createFakeGame(appData, exeName, applicationId, pid) {
+        return {
+            cmdLine: `C:\\Program Files\\${appData.name}\\${exeName}`,
+            exeName,
+            exePath: `c:/program files/${appData.name.toLowerCase()}/${exeName}`,
+            hidden: false,
+            isLauncher: false,
+            id: applicationId,
+            name: appData.name,
+            pid: pid,
+            pidPath: [pid],
+            processName: appData.name,
+            start: Date.now(),
+        };
+    }
+
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    showProgressNotice(message) {
+        BdApi.UI.showToast(message, { type: "info", timeout: 2000 });
+    }
+
+    showCompletionNotice(message) {
+        BdApi.UI.showNotice(message, { type: "success" });
+    }
+
+    showErrorNotice(message) {
+        BdApi.UI.showNotice(message, { type: "error" });
     }
 };
