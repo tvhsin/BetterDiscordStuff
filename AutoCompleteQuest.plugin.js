@@ -7,14 +7,14 @@
  * @license Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0)
  */
 
-module.exports = class CompleteDiscordQuest {
+module.exports = class AutoCompleteQuest {
     start() {
         // Notify the user that the plugin has started
-        BdApi.UI.showNotice("CompleteDiscordQuest plugin started! It will wait 10 seconds before checking for claimed quests.", { type: "info" });
+        BdApi.UI.showNotice("AutoCompleteQuest plugin started! It will wait 10 seconds before checking for claimed quests.", { type: "info" });
 
         // Check if settings are open and prompt the user to close them
         if (document.querySelector('.bd-settings-title')) {
-            BdApi.UI.alert("CompleteDiscordQuest", "Plugin started! Please close settings.", {
+            BdApi.UI.alert("AutoCompleteQuest", "Plugin started! Please close settings.", {
                 buttons: [
                     {
                         label: "Close Settings",
@@ -32,7 +32,7 @@ module.exports = class CompleteDiscordQuest {
 
     stop() {
         // Notify the user that the plugin has stopped
-        BdApi.UI.showToast("CompleteDiscordQuest plugin stopped!", { type: "info" });
+        BdApi.UI.showToast("AutoCompleteQuest plugin stopped!", { type: "info" });
 
         // Show a popup informing the user that the script will still run until Discord is restarted
         BdApi.UI.showConfirmationModal("Plugin Stopped", "The script will still run until you restart Discord. Would you like to restart Discord now?", {
@@ -87,11 +87,11 @@ module.exports = class CompleteDiscordQuest {
 
     handleNoQuests() {
         console.log("You don't have any uncompleted quests!");
-        BdApi.UI.showConfirmationModal("No Quests Left", "You don't have any claimed incomplete quests. Would you like to disable CompleteDiscordQuest and restart discord?", {
+        BdApi.UI.showConfirmationModal("No Quests Left", "You don't have any claimed incomplete quests. Would you like to disable AutoCompleteQuest and restart discord?", {
             confirmText: "Yes",
             cancelText: "No, keep plugin enabled.",
             onConfirm: () => {
-                BdApi.Plugins.disable("CompleteDiscordQuest");
+                BdApi.Plugins.disable("AutoCompleteQuest");
                 location.reload();
             },
             onCancel: () => {
@@ -101,7 +101,7 @@ module.exports = class CompleteDiscordQuest {
                         {
                             label: "Disable Plugin & Restart Discord",
                             onClick: () => {
-                                BdApi.Plugins.disable("CompleteDiscordQuest");
+                                BdApi.Plugins.disable("AutoCompleteQuest");
                                 location.reload();
                             }
                         }
