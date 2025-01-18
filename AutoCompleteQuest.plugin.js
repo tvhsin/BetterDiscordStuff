@@ -1,5 +1,5 @@
 /**
- * @name CompleteDiscordQuest
+ * @name AutoCompleteQuest
  * @version 0.0.4
  * @description A BetterDiscord plugin to complete Discord quests without doing the tasks.
  * @author Tahsin (@tahsin_ahmed62)
